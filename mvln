@@ -1,0 +1,90 @@
+#!/usr/bin/env ruby
+# vim: noet
+
+require "pathname"
+require "rubygems"
+require "trollop"
+
+name = Pathname($0).basename
+pwd = Pathname.pwd
+
+
+# i'm going to put this text up here, to avoid weirdly unindenting it
+# within the Trollop::options block.
+BANNER = <<EOT
+Rename SOURCE to DEST, and create a symlink to replace SOURCE. This is
+handy for moving files around without breaking their existing filename.
+
+Usage:
+  #{name} [options] SOURCE DEST
+
+Options:
+EOT
+
+
+# parse the command-line options
+opts = Trollop::options do
+	version "#{name} 0.1 (c) 2010 Adam Mckaig"
+	banner BANNER
+
+	opt :force,    "Allow overwrite of existing files", :type => :bool
+	opt :absolute, "Create absolute symlinks",          :type => :bool
+end
+
+
+# check that there are exactly two arguments.
+Trollop::die "SOURCE must be specified" if ARGV.length < 1
+Trollop::die "DEST must be specified"   if ARGV.length < 2
+Trollop::die "Too many arguments"       if ARGV.length > 2
+source_str, dest_str = *ARGV
+
+
+# if DEST or SOURCE was relative (ie, doesn't start with a slash),
+# resolve them (from the pwd) into absolute paths.
+source = pwd.join(Pathname(source_str))
+dest   = pwd.join(Pathname(dest_str))
+
+
+# abort if SOURCE is not valid.
+Trollop::die "SOURCE must exist" unless source.exist?
+
+
+# abort if DEST already exists.
+if dest.file? and !opts[:force]
+	Trollop::die "DEST already exists"
+
+# if DEST was a directory, we probably don't want to overwrite it with
+# SOURCE, so (like `mv` and `ln` do) assume that the user wants to move
+# the SOURCE *into* the DEST.
+elsif dest.directory?
+	name = source.basename
+	dest = dest.join(name)
+
+	# provide a better error for this special case.
+	if dest.exist? and !opts[:force]
+		Trollop::die "#{name} already exists in DEST"
+	end
+end
+
+
+
+
+#
+# everything appears to be valid.
+# commence trashing the filesystem.
+#
+
+source.rename(dest)
+
+# create an absolute symlink.
+if opts[:absolute]
+	source.make_symlink(dest)
+
+# create a relative symlink. we must start from the source's parent
+# (rather than the source itself), since Pathname.relative_path_from
+# will return a path from INSIDE the source, if it's a directory.
+else
+	source_filename = Pathname(source.to_s.gsub(%r{/+$}, ""))
+	source_to_dest = dest.relative_path_from(source.parent)
+	source_filename.make_symlink(source_to_dest)
+end

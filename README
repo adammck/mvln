@@ -1,0 +1,11 @@
+Rename SOURCE to DEST, and create a symlink to replace SOURCE. This is
+handy for moving files around without breaking their existing filename.
+
+Usage:
+  mvln [options] SOURCE DEST
+
+Options:
+  --force,    -f:  Allow overwrite of existing files
+  --absolute, -a:  Create absolute symlinks
+  --version,  -v:  Print version and exit
+  --help,     -h:  Show this message
